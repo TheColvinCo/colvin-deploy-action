@@ -56,7 +56,7 @@ runs:
       shell: bash
       
     - name: "Terraform decrypt encrypted values"
-      run: for FILE in `ls -1 ${TERRAFORM_PATH}/*.enc 2> /dev/null`; do sops -d ${FILE} > ${FILE::-4}; done
+      run: for FILE in `find ${TERRAFORM_PATH}/ -name "*.enc"`; do sops -d ${FILE} > ${FILE::-4}; done
       shell: bash
       if: ${{ env.EXEC_TERRAFORM == 'true' }}
 
