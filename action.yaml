@@ -1,2 +1,161 @@
 name: 'Deploy Colvin Projects'
 description: 'Deploy Colvin projects to Google Cloud Platform'
+runs:
+  using: "composite"
+  steps:
+    - name: "Get variables and validations"
+      run: |
+        INPUT_WORKSPACE=${{ github.event.inputs.environment }}
+        
+        if [ "${{ github.event_name }}" == "push" ]
+        then
+            # PRODUCTION - Master branch through commit or merge PR
+            echo "WORKSPACE=prod" >> ${GITHUB_ENV}
+        else
+            # Manual execution from "workflow_dispatch"
+            if [[ ${INPUT_WORKSPACE} =~ ^prod$|^stage[1-${LIMIT_STG}]{1}$ ]]
+            then
+                # We can make a manual "plan|apply" from master or any branch
+                echo "WORKSPACE=${{ github.event.inputs.environment }}" >> ${GITHUB_ENV}
+            else
+                echo "ERROR: not allowed environment: \"${{ github.event.inputs.environment }}\"!   [prod|stageX]"; exit 1
+                exit 1
+            fi
+        fi
+      shell: bash
+        
+    - name: "Get kubernetes credentials"
+      run: |
+        if [ ${WORKSPACE} == "prod" ]
+        then
+            echo "CLUSTER=${K8S_PROD}" >> ${GITHUB_ENV}
+            echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}
+        else
+            echo "CLUSTER=${K8S_STG}" >> ${GITHUB_ENV}
+            echo "LOCATION=${GCP_ZONE}" >> ${GITHUB_ENV}
+        fi
+      shell: bash
+
+    - name: "GCloud get GKE credentials"
+      id: "get-credentials"
+      uses: google-github-actions/get-gke-credentials@v0
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+        cluster_name: ${{ env.CLUSTER }}
+        location: ${{ env.LOCATION }}
+    
+    - name: "Kubernetes check status"
+      run: |
+        # Protect GKE credentials
+        chmod 600 $KUBECONFIG
+        
+        if [ ${WORKSPACE} != "prod" ]
+        then
+            if [ `kubectl get nodes -o json | jq '.items | length'` -eq 0 ]; then echo "ERROR: stage is stopped. Remember to start it!"; exit 1; fi
+        fi
+      shell: bash
+      
+    - name: "Terraform decrypt encrypted values"
+      run: for FILE in `ls -1 ${TERRAFORM_PATH}/*.enc 2> /dev/null`; do sops -d ${FILE} > ${FILE::-4}; done
+      shell: bash
+      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+
+    - name: "Terraform init"
+      run: terraform -chdir=${TERRAFORM_PATH}/ init -input=false
+      shell: bash
+      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+
+    - name: "Terraform workspace"
+      run: |
+        if [ ${WORKSPACE} == "prod" ]; then
+            terraform -chdir=${TERRAFORM_PATH}/ workspace select ${K8S_PROD}
+        else
+            terraform -chdir=${TERRAFORM_PATH}/ workspace select ${WORKSPACE}
+        fi
+      shell: bash
+      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+
+    - name: "Terraform apply"
+      run: terraform -chdir=${TERRAFORM_PATH}/ apply -auto-approve
+      shell: bash
+      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+      
+    - name: "Get latest tag and auto increment version"
+      run: |
+        ARRAY_CONTAINERS=(${CONTAINER_LIST})
+        
+        if [ $WORKSPACE == "prod" ]; then
+            LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^[0-9]" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+            REGEX="([0-9]+).([0-9]+)"
+        else
+            MAJOR_VERSION="s"${MAJOR_VERSION}
+            LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^s[0-9]" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+            REGEX="(s[0-9]+).([0-9]+)"
+        fi
+        if [[ ${LAST} =~ ${REGEX} ]]; then MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; fi
+        if [ -z ${MAJOR} ]; then MAJOR="1"; MINOR="0"; fi
+        if [ ${MAJOR_VERSION} != ${MAJOR} ]; then MAJOR=${MAJOR_VERSION}; MINOR="1"; else MINOR=$(echo ${MINOR} + 1 | bc); fi
+        echo "TAG_IMG=${MAJOR}.${MINOR}" >> ${GITHUB_ENV}
+      shell: bash
+      if: ${{ env.EXEC_DOCKER == 'true' }}
+      
+    - name: "Docker config to pull or push Artifact Registry"
+      run: gcloud auth configure-docker europe-docker.pkg.dev
+      shell: bash
+      if: ${{ env.EXEC_DOCKER == 'true' }}
+      
+    - name: "Docker build images"
+      run: |
+        # https://stackoverflow.com/questions/65295958/docker-compose-not-working-with-gcloud-cannot-find-openssl
+        export CLOUDSDK_PYTHON=python2
+        
+        ARRAY_CONTAINERS=(${CONTAINER_LIST})
+        
+        for CONTAINER in "${ARRAY_CONTAINERS[@]}"
+        do
+            export TAG_${CONTAINER^^}="${REGISTRY}${CONTAINER}:${TAG_IMG}"
+            
+            if [ ${WORKSPACE} == "prod" ]; then
+                docker-compose -f docker-compose.yml build ${BUILD_ARG_PROD} ${CONTAINER}
+            else
+                if ${BUILD_USE_WORKSPACE}; then
+                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG}${WORKSPACE} ${CONTAINER}
+                else
+                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
+                fi
+            fi
+        done
+      shell: bash
+      if: ${{ env.EXEC_DOCKER == 'true' }}
+
+    - name: "Docker push images to GCR"
+      run: |
+        ARRAY_CONTAINERS=(${CONTAINER_LIST})
+        for CONTAINER in "${ARRAY_CONTAINERS[@]}"; do docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}; done
+      shell: bash
+      if: ${{ env.EXEC_DOCKER == 'true' }}
+
+    - name: "Replace version in helm values"
+      run: sed -i "s/TAG_IMG/${TAG_IMG}/g" ${HELM_PATH}/values.yaml ${HELM_PATH}/values.prod.yaml
+      shell: bash
+      if: ${{ env.EXEC_DOCKER == 'true' }}
+
+    - name: "Helm dependencies update"
+      run: helm dependency update ${HELM_PATH}/
+      shell: bash
+      if: ${{ env.EXEC_HELM == 'true' }}
+      
+    - name: "Helm deploy"
+      run: |
+        if [ ${WORKSPACE} == "prod" ]; then
+            helm secrets upgrade ${APP_NAME} ${HELM_PATH} --install --wait --atomic \
+                -f ${HELM_PATH}/values.yaml -f ${HELM_PATH}/values.prod.yaml \
+                -f ${HELM_PATH}/secrets.yaml -f ${HELM_PATH}/secrets.prod.yaml --timeout ${HELM_TIMEOUT}
+        else
+            NUMSTG=`echo ${WORKSPACE} | awk -F"stage" '{ print $2 }'`
+            helm secrets upgrade ${APP_NAME}${NUMSTG} ${HELM_PATH}/ --install --wait --atomic \
+                -f ${HELM_PATH}/values.yaml -f ${HELM_PATH}/values.${WORKSPACE}.yaml \
+                -f ${HELM_PATH}/secrets.yaml -f ${HELM_PATH}/secrets.${WORKSPACE}.yaml --timeout ${HELM_TIMEOUT}
+        fi
+      shell: bash
+      if: ${{ env.EXEC_HELM == 'true' }}
