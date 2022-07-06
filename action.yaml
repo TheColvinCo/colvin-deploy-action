@@ -67,7 +67,8 @@ runs:
 
     - name: "Terraform workspace"
       run: |
-        if [ ${WORKSPACE} == "prod" ]; then
+        if [ ${WORKSPACE} == "prod" ]
+        then
             terraform -chdir=${TERRAFORM_PATH}/ workspace select ${K8S_PROD}
         else
             terraform -chdir=${TERRAFORM_PATH}/ workspace select ${WORKSPACE}
@@ -84,7 +85,8 @@ runs:
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
         
-        if [ $WORKSPACE == "prod" ]; then
+        if [ $WORKSPACE == "prod" ]
+        then
             LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^[0-9]" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
             REGEX="([0-9]+).([0-9]+)"
         else
@@ -115,10 +117,12 @@ runs:
         do
             export TAG_${CONTAINER^^}="${REGISTRY}${CONTAINER}:${TAG_IMG}"
             
-            if [ ${WORKSPACE} == "prod" ]; then
+            if [ ${WORKSPACE} == "prod" ]
+            then
                 docker-compose -f docker-compose.yml build ${BUILD_ARG_PROD} ${CONTAINER}
             else
-                if ${BUILD_USE_WORKSPACE}; then
+                if ${BUILD_USE_WORKSPACE}
+                then
                     docker-compose -f docker-compose.yml build ${BUILD_ARG_STG}${WORKSPACE} ${CONTAINER}
                 else
                     docker-compose -f docker-compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
@@ -147,7 +151,8 @@ runs:
       
     - name: "Helm deploy"
       run: |
-        if [ ${WORKSPACE} == "prod" ]; then
+        if [ ${WORKSPACE} == "prod" ]
+        then
             helm secrets upgrade ${APP_NAME} ${HELM_PATH} --install --wait --atomic \
                 -f ${HELM_PATH}/values.yaml -f ${HELM_PATH}/values.prod.yaml \
                 -f ${HELM_PATH}/secrets.yaml -f ${HELM_PATH}/secrets.prod.yaml --timeout ${HELM_TIMEOUT}
