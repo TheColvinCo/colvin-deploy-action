@@ -6,7 +6,7 @@ The installation of dependencies and tools is done individually in each project,
 
 ## Setup
 
-Add this Action ction as an additional step to each project.
+Add this Action as an additional step to each project.
 
 ```sh
     - name: "Deploy"
