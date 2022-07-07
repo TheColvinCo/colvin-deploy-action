@@ -17,7 +17,7 @@ Add this Action as an additional step to each project.
 
 ## Expected variables
 
-In the main action of each project, we will specify the variables block, like this example.
+In the main Action of each project, we will specify the variables block, like this example.
 
 ```sh
 env:
