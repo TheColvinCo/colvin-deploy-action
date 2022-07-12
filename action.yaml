@@ -6,6 +6,7 @@ runs:
     - name: "Get variables and validations"
       run: |
         INPUT_WORKSPACE=${{ github.event.inputs.environment }}
+        INPUT_FR_TERRAFORM=${{ github.event.inputs.fr_terraform }}
         
         if [ "${{ github.event_name }}" == "push" ]
         then
@@ -15,10 +16,22 @@ runs:
             # Manual execution from "workflow_dispatch"
             if [[ ${INPUT_WORKSPACE} =~ ^prod$|^stage[1-${LIMIT_STG}]{1}$ ]]
             then
+                if [ ! -z ${{ steps.changes.outputs.terraform }} ]
+                then
+                    # Get terraform folder diff between branches and avoit breaking changes
+                    OUTPUT_FR_TERRAFORM=${{ steps.changes.outputs.terraform }}
+                    
+                    if ! ${INPUT_FR_TERRAFORM} && ${OUTPUT_FR_TERRAFORM}
+                    then
+                        echo "ERROR: there are terraform changes in master, pull from master!"
+                        exit 1
+                    fi
+                fi
+                
                 # We can make a manual "plan|apply" from master or any branch
                 echo "WORKSPACE=${{ github.event.inputs.environment }}" >> ${GITHUB_ENV}
             else
-                echo "ERROR: not allowed environment: \"${{ github.event.inputs.environment }}\"!   [prod|stageX]"; exit 1
+                echo "ERROR: not allowed environment: \"${{ github.event.inputs.environment }}\"!   [prod|stageX]"
                 exit 1
             fi
         fi
