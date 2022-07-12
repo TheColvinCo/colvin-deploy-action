@@ -3,6 +3,16 @@ description: 'Deploy Colvin projects to Google Cloud Platform'
 runs:
   using: "composite"
   steps:
+    - name: "Terraform check changes between branches"
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        base: master
+        filters: |
+          terraform:
+            - 'terraform/**'
+      if: ${{ env.DIFF_TERRAFORM == 'true' }}
+      
     - name: "Get variables and validations"
       run: |
         INPUT_WORKSPACE=${{ github.event.inputs.environment }}
