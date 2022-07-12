@@ -35,6 +35,7 @@ env:
   EXEC_TERRAFORM: "true"
   EXEC_DOCKER: "true"
   EXEC_HELM: "true"
+  DIFF_TERRAFORM: "true"
   HELM_TIMEOUT: "5m"
   HELM_PATH: "./helm"
   TERRAFORM_PATH: "./terraform"
@@ -72,6 +73,8 @@ env:
 - `EXEC_DOCKER:` - If our application needs to run the docker image build process (build, push).
 
 - `EXEC_HELM:` - If our application has to update or install a Helm chart.
+
+- `DIFF_TERRAFORM:` - If we want to do a check for the terraform folder and avoid deploy when there are breaking changes (modified files).
 
 - `HELM_TIMEOUT` - Maximum time for the execution of the helm upgrade command.
 
