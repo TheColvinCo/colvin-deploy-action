@@ -12,7 +12,7 @@ runs:
         filters: |
           terraform:
             - 'terraform/**'
-      if: ${{ env.DIFF_TERRAFORM == 'true' }} && ${{ github.ref_name != 'master' }}
+      if: ${{ env.DIFF_TERRAFORM == 'true' && github.ref_name != 'master' }}
       
     - name: "Get variables and validations"
       run: |
