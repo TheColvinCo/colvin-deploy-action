@@ -31,7 +31,7 @@ runs:
                     # Get terraform folder diff between branches and avoit breaking changes
                     OUTPUT_FR_TERRAFORM=${{ steps.changes.outputs.terraform }}
                     
-                    if ${OUTPUT_FR_TERRAFORM}
+                    if ${OUTPUT_FR_TERRAFORM} && [ ${{ github.ref_name }} != "master" ]
                     then
                         echo "ERROR: there are terraform changes in master, pull from master!"
                         exit 1
