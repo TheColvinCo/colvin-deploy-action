@@ -12,7 +12,7 @@ runs:
         filters: |
           terraform:
             - 'terraform/**'
-      if: ${{ env.DIFF_TERRAFORM == 'true' }}
+      if: ${{ env.DIFF_TERRAFORM == 'true' }} && ${{ github.ref_name != 'master' }}
       
     - name: "Get variables and validations"
       run: |
@@ -31,7 +31,7 @@ runs:
                     # Get terraform folder diff between branches and avoit breaking changes
                     OUTPUT_FR_TERRAFORM=${{ steps.changes.outputs.terraform }}
                     
-                    if ${OUTPUT_FR_TERRAFORM} && [ ${{ github.ref_name }} != "master" ]
+                    if ${OUTPUT_FR_TERRAFORM}
                     then
                         echo "ERROR: there are terraform changes in master, pull from master!"
                         exit 1
