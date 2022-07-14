@@ -7,7 +7,8 @@ runs:
       uses: dorny/paths-filter@v2
       id: changes
       with:
-        base: master
+        base: ${{ github.ref }}
+        ref: master
         filters: |
           terraform:
             - 'terraform/**'
@@ -16,7 +17,6 @@ runs:
     - name: "Get variables and validations"
       run: |
         INPUT_WORKSPACE=${{ github.event.inputs.environment }}
-        INPUT_FR_TERRAFORM=${{ github.event.inputs.fr_terraform }}
         
         if [ "${{ github.event_name }}" == "push" ]
         then
@@ -31,7 +31,7 @@ runs:
                     # Get terraform folder diff between branches and avoit breaking changes
                     OUTPUT_FR_TERRAFORM=${{ steps.changes.outputs.terraform }}
                     
-                    if ! ${INPUT_FR_TERRAFORM} && ${OUTPUT_FR_TERRAFORM}
+                    if ${OUTPUT_FR_TERRAFORM}
                     then
                         echo "ERROR: there are terraform changes in master, pull from master!"
                         exit 1
