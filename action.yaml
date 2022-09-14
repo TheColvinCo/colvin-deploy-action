@@ -55,7 +55,7 @@ runs:
             echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}
         else
             echo "CLUSTER=${K8S_STG}" >> ${GITHUB_ENV}
-            echo "LOCATION=${GCP_ZONE}" >> ${GITHUB_ENV}
+            echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}
         fi
       shell: bash
 
