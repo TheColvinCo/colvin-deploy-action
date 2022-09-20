@@ -3,7 +3,7 @@ description: 'Deploy Colvin projects to Google Cloud Platform'
 runs:
   using: "composite"
   steps:
-    - name: "Terraform check changes between branches"
+    - name: 'Terraform check changes between branches'
       uses: dorny/paths-filter@v2
       id: changes
       with:
@@ -13,82 +13,124 @@ runs:
           terraform:
             - 'terraform/**'
       if: ${{ env.DIFF_TERRAFORM == 'true' && github.ref_name != 'master' }}
-      
-    - name: "Get variables and validations"
+
+    - name: 'Get variables and validations'
       run: |
         INPUT_WORKSPACE=${{ github.event.inputs.environment }}
-        
+
         if [ "${{ github.event_name }}" == "push" ]
         then
             # PRODUCTION - Master branch through commit or merge PR
             echo "WORKSPACE=prod" >> ${GITHUB_ENV}
+            echo "TAG_PREFIX=1" >> ${GITHUB_ENV}
         else
-            # Manual execution from "workflow_dispatch"
-            if [[ ${INPUT_WORKSPACE} =~ ^prod$|^stage[1-${LIMIT_STG}]{1}$ ]]
+            if [ ! -z ${{ steps.changes.outputs.terraform }} ]
             then
-                if [ ! -z ${{ steps.changes.outputs.terraform }} ]
+                # Get terraform folder diff between branches and avoit breaking changes
+                OUTPUT_FR_TERRAFORM=${{ steps.changes.outputs.terraform }}
+
+                if ${OUTPUT_FR_TERRAFORM}
                 then
-                    # Get terraform folder diff between branches and avoit breaking changes
-                    OUTPUT_FR_TERRAFORM=${{ steps.changes.outputs.terraform }}
-                    
-                    if ${OUTPUT_FR_TERRAFORM}
+                    echo "::error::There are terraform changes in master, pull from master!"
+                    exit 1
+                fi
+            fi
+
+            if [ ${INPUT_WORKSPACE} == "dynamic" ]
+            then
+                if [[ ! ${GITHUB_REF_NAME} =~ ^[A-Z]{2,4}-[0-9]+(_|\/).* ]]
+                then
+                    echo "::error::The branch isn't in the expected format, with a Jira code prefix!"
+                    exit 1
+                fi
+
+                APP_HASH=`echo ${GITHUB_REF_NAME} | awk -F'[/_]' '{print tolower($1)}'`
+
+                APP_FILE="${APP_HASH}.txt"
+                RES="blank"; gsutil -q stat gs://${GCS_DYNAMIC}/${DNS_ZONE}/${APP_FILE} || RES=empty
+
+                if [[ ${RES} != "empty" ]]
+                then
+                    echo "DYNAMIC_INSTALL=false" >> ${GITHUB_ENV}
+
+                    # Update existent environment
+                    gsutil cp gs://${GCS_DYNAMIC}/${DNS_ZONE}/${APP_FILE} ${APP_FILE}
+                    TMP_APP_NAME=`grep "APP_NAME=" ${APP_FILE} | awk -F'=' '{print $2}'`
+                    TMP_BRANCH=`grep "BRANCH=" ${APP_FILE} | awk -F'=' '{print $2}'`
+
+                    # Verify that the branch corresponds to the APP and the DNS zone
+                    if [ ${APP_NAME} != ${TMP_APP_NAME} ] || [ ${GITHUB_REF_NAME} != ${TMP_BRANCH} ]
                     then
-                        echo "ERROR: there are terraform changes in master, pull from master!"
+                        echo "::error::This JIRA CODE (${APP_HASH}) is currently in use by another APP (${TMP_APP_NAME}) or BRANCH (${TMP_BRANCH}) under the same DNS zone (${DNS_ZONE})!"
                         exit 1
                     fi
+                else
+                    # Dynamic environtment, first install
+                    echo "DYNAMIC_INSTALL=true" >> ${GITHUB_ENV}
                 fi
-                
-                # We can make a manual "plan|apply" from master or any branch
-                echo "WORKSPACE=${{ github.event.inputs.environment }}" >> ${GITHUB_ENV}
+
+                # Disable terraform due a dynamic environment and we use static resources from stage1
+                echo "SKIP_TERRAFORM=true" >> ${GITHUB_ENV}
+                echo "APP_HASH=${APP_HASH}" >> ${GITHUB_ENV}
+                echo "APP_DOMAIN=dyn-${APP_HASH}.${DNS_DOMAIN}" >> ${GITHUB_ENV}
+                echo "TAG_PREFIX=${APP_HASH}" >> ${GITHUB_ENV}
             else
-                echo "ERROR: not allowed environment: \"${{ github.event.inputs.environment }}\"!   [prod|stageX]"
-                exit 1
+                NUM_STG=`echo ${INPUT_WORKSPACE} | awk -F"stage" '{ print $2 }'`
+                echo "NUM_STG=${NUM_STG}" >> ${GITHUB_ENV}
+                echo "TAG_PREFIX=s${NUM_STG}" >> ${GITHUB_ENV}
             fi
-        fi
-      shell: bash
-        
-    - name: "Get kubernetes credentials"
-      run: |
-        if [ ${WORKSPACE} == "prod" ]
-        then
-            echo "CLUSTER=${K8S_PROD}" >> ${GITHUB_ENV}
-            echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}
-        else
-            echo "CLUSTER=${K8S_STG}" >> ${GITHUB_ENV}
-            echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}
+
+            # We can make a manual "plan|apply" from master or any branch
+            echo "WORKSPACE=${INPUT_WORKSPACE}" >> ${GITHUB_ENV}
         fi
       shell: bash
 
-    - name: "GCloud get GKE credentials"
-      id: "get-credentials"
+    - name: 'Configure dynamic variables'
+      run: bash scripts/generate-dynamic-envs.sh
+      shell: bash
+      if: ${{ github.event.inputs.environment == 'dynamic' }}
+
+    - name: 'Get kubernetes credentials'
+      run: |
+          if [ ${WORKSPACE} == "prod" ]
+          then
+              echo "CLUSTER=${K8S_PROD}" >> ${GITHUB_ENV}
+              echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}
+          else
+              echo "CLUSTER=${K8S_STG}" >> ${GITHUB_ENV}
+              if [ ${K8S_STG_LOCATION} == "region" ]; then echo "LOCATION=${GCP_REGION}" >> ${GITHUB_ENV}; else echo "LOCATION=${GCP_ZONE}" >> ${GITHUB_ENV}; fi
+          fi
+      shell: bash
+
+    - name: 'GCloud get GKE credentials'
+      id: 'get-credentials'
       uses: google-github-actions/get-gke-credentials@v0
       with:
         project_id: ${{ env.PROJECT_ID }}
         cluster_name: ${{ env.CLUSTER }}
         location: ${{ env.LOCATION }}
-    
-    - name: "Kubernetes check status"
+
+    - name: 'Kubernetes check status'
       run: |
-        # Protect GKE credentials
         chmod 600 $KUBECONFIG
-        
+
         if [ ${WORKSPACE} != "prod" ]
         then
-            if [ `kubectl get nodes -o json | jq '.items | length'` -eq 0 ]; then echo "ERROR: stage is stopped. Remember to start it!"; exit 1; fi
+            if [ `kubectl get nodes -o json | jq '.items | length'` -eq 0 ]; then echo "::error::Stage is stopped. Remember to start it!"; exit 1; fi
         fi
       shell: bash
-      
-    - name: "Terraform decrypt encrypted values"
+
+    - name: 'Terraform decrypt encrypted values'
       run: for FILE in `find ${TERRAFORM_PATH}/ -name "*.enc"`; do sops -d ${FILE} > ${FILE::-4}; done
       shell: bash
-      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+      if: ${{ env.EXEC_TERRAFORM == 'true' && env.SKIP_TERRAFORM != 'true' }}
 
-    - name: "Terraform init"
+    - name: 'Terraform init'
       run: terraform -chdir=${TERRAFORM_PATH}/ init -input=false
       shell: bash
-      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+      if: ${{ env.EXEC_TERRAFORM == 'true' && env.SKIP_TERRAFORM != 'true' }}
 
-    - name: "Terraform workspace"
+    - name: 'Terraform workspace'
       run: |
         if [ ${WORKSPACE} == "prod" ]
         then
@@ -97,52 +139,52 @@ runs:
             terraform -chdir=${TERRAFORM_PATH}/ workspace select ${WORKSPACE}
         fi
       shell: bash
-      if: ${{ env.EXEC_TERRAFORM == 'true' }}
+      if: ${{ env.EXEC_TERRAFORM == 'true' && env.SKIP_TERRAFORM != 'true' }}
 
-    - name: "Terraform apply"
+    - name: 'Terraform apply'
       run: terraform -chdir=${TERRAFORM_PATH}/ apply -auto-approve
       shell: bash
-      if: ${{ env.EXEC_TERRAFORM == 'true' }}
-      
-    - name: "Get latest tag and auto increment version"
+      if: ${{ env.EXEC_TERRAFORM == 'true' && env.SKIP_TERRAFORM != 'true' }}
+
+    - name: 'Get latest tag and auto increment version'
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
-        
-        if [ $WORKSPACE == "prod" ]
-        then
-            LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^[0-9]" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
-            REGEX="([0-9]+).([0-9]+)"
-        else
-            MAJOR_VERSION="s"${MAJOR_VERSION}
-            LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^s[0-9]" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
-            REGEX="(s[0-9]+).([0-9]+)"
-        fi
-        if [[ ${LAST} =~ ${REGEX} ]]; then MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; fi
-        if [ -z ${MAJOR} ]; then MAJOR="1"; MINOR="0"; fi
-        if [ ${MAJOR_VERSION} != ${MAJOR} ]; then MAJOR=${MAJOR_VERSION}; MINOR="1"; else MINOR=$(echo ${MINOR} + 1 | bc); fi
-        echo "TAG_IMG=${MAJOR}.${MINOR}" >> ${GITHUB_ENV}
+        REGEX="${TAG_PREFIX}.([0-9]+)"
+        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+        if [[ ${LAST} =~ ${REGEX} ]]; then MINOR="${BASH_REMATCH[1]}"; fi
+        if [ -z ${MINOR} ]; then MINOR="0"; fi
+        MINOR=$(echo ${MINOR} + 1 | bc)
+        echo "TAG_IMG=${TAG_PREFIX}.${MINOR}" >> ${GITHUB_ENV}
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
-      
-    - name: "Docker config to pull or push Artifact Registry"
+
+    - name: 'Docker config to pull or push Artifact Registry'
       run: gcloud auth configure-docker europe-docker.pkg.dev
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
-      
-    - name: "Docker build images"
+
+    - name: 'Docker build images'
       run: |
-        # https://stackoverflow.com/questions/65295958/docker-compose-not-working-with-gcloud-cannot-find-openssl
         export CLOUDSDK_PYTHON=python2
-        
+        # https://stackoverflow.com/questions/65295958/docker-compose-not-working-with-gcloud-cannot-find-openssl
+
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
-        
+
         for CONTAINER in "${ARRAY_CONTAINERS[@]}"
         do
             export TAG_${CONTAINER^^}="${REGISTRY}${CONTAINER}:${TAG_IMG}"
-            
+
             if [ ${WORKSPACE} == "prod" ]
             then
                 docker-compose -f docker-compose.yml build ${BUILD_ARG_PROD} ${CONTAINER}
+            elif [ ${WORKSPACE} == "dynamic" ]
+            then
+                if ${BUILD_USE_WORKSPACE}
+                then
+                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG}stage1 ${CONTAINER}
+                else
+                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
+                fi
             else
                 if ${BUILD_USE_WORKSPACE}
                 then
@@ -155,35 +197,87 @@ runs:
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
 
-    - name: "Docker push images to GCR"
+    - name: 'Docker push to Artifacts Registry'
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
         for CONTAINER in "${ARRAY_CONTAINERS[@]}"; do docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}; done
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
 
-    - name: "Replace version in helm values"
+    - name: 'Replace version in helm values'
       run: sed -i "s/TAG_IMG/${TAG_IMG}/g" ${HELM_PATH}/values.yaml ${HELM_PATH}/values.prod.yaml
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
 
-    - name: "Helm dependencies update"
+    - name: 'Helm dependencies update'
       run: helm dependency update ${HELM_PATH}/
       shell: bash
       if: ${{ env.EXEC_HELM == 'true' }}
-      
-    - name: "Helm deploy"
+
+    - name: 'Helm deploy'
       run: |
         if [ ${WORKSPACE} == "prod" ]
         then
             helm secrets upgrade ${APP_NAME} ${HELM_PATH} --install --wait --atomic \
                 -f ${HELM_PATH}/values.yaml -f ${HELM_PATH}/values.prod.yaml \
                 -f ${HELM_PATH}/secrets.yaml -f ${HELM_PATH}/secrets.prod.yaml --timeout ${HELM_TIMEOUT}
+        elif [ ${WORKSPACE} == "dynamic" ]
+        then
+            helm secrets upgrade ${APP_NAME}-${APP_HASH} ${HELM_PATH}/ --install --wait --atomic \
+                -f ${HELM_PATH}/values.yaml -f ${HELM_PATH}/values.dynamic.yaml \
+                -f ${HELM_PATH}/secrets.yaml -f ${HELM_PATH}/secrets.dynamic.yaml --timeout ${HELM_TIMEOUT}
         else
-            NUMSTG=`echo ${WORKSPACE} | awk -F"stage" '{ print $2 }'`
-            helm secrets upgrade ${APP_NAME}${NUMSTG} ${HELM_PATH}/ --install --wait --atomic \
+            helm secrets upgrade ${APP_NAME}${NUM_STG} ${HELM_PATH}/ --install --wait --atomic \
                 -f ${HELM_PATH}/values.yaml -f ${HELM_PATH}/values.${WORKSPACE}.yaml \
                 -f ${HELM_PATH}/secrets.yaml -f ${HELM_PATH}/secrets.${WORKSPACE}.yaml --timeout ${HELM_TIMEOUT}
         fi
       shell: bash
       if: ${{ env.EXEC_HELM == 'true' }}
+
+    - name: 'Get HTTP ingress IP and set DNS'
+      run: |
+        FINISH=false
+        while ! ${FINISH}
+        do
+            HTTP_IP=`kubectl get ingress dyn-${APP_NAME}-${APP_HASH} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
+            if [[ ${HTTP_IP} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then FINISH=true; else echo "Waiting for the IP of the balancer..."; sleep 15; fi
+        done
+
+        echo "HTTP INGRESS IP: ${HTTP_IP}"
+        gcloud dns --project=${PROJECT_ID} record-sets create ${APP_DOMAIN}. --type="A" --zone="${DNS_ZONE}" --rrdatas="${HTTP_IP}" --ttl="300"
+      shell: bash
+      if: ${{ env.EXEC_HELM == 'true' && env.DYNAMIC_INSTALL == 'true' }}
+
+    - name: 'Save last state for dynamic environment'
+      run: |
+        APP_FILE="${APP_HASH}.txt"
+        DATE=$(date "+%Y%m%d-%H%M%S")
+        TIMESTAMP=$(date +%s)
+
+        if ! ${DYNAMIC_INSTALL}
+        then
+            gsutil cp gs://${GCS_DYNAMIC}/${DNS_ZONE}/${APP_FILE} ${APP_FILE}
+
+            UPDATE_NUM=`grep "UPDATE_NUM=" ${APP_FILE} | awk -F'=' '{print $2}'`
+            sed -i "s/UPDATE_NUM=.*/UPDATE_NUM=$(echo ${UPDATE_NUM} + 1 | bc)/" ${APP_FILE}
+            sed -i "s/DATE_UPDATE=.*/DATE_UPDATE=${DATE}/" ${APP_FILE}
+            sed -i "s/TIMESTAMP_UPDATE=.*/TIMESTAMP_UPDATE=${TIMESTAMP}/" ${APP_FILE}
+        else
+            # Create non existent environment
+            echo "DNS_ZONE=${DNS_ZONE}" >> ${APP_FILE}
+            echo "DNS_DOMAIN=${DNS_DOMAIN}" >> ${APP_FILE}
+            echo "APP_NAME=${APP_NAME}" >> ${APP_FILE}
+            echo "APP_DOMAIN=${APP_DOMAIN}" >> ${APP_FILE}
+            echo "APP_HASH=${APP_HASH}" >> ${APP_FILE}
+            echo "BRANCH=${GITHUB_REF_NAME}" >> ${APP_FILE}
+            echo "DATE_INIT=${DATE}" >> ${APP_FILE}
+            echo "DATE_UPDATE=${DATE}" >> ${APP_FILE}
+            echo "TIMESTAMP_INIT=${TIMESTAMP}" >> ${APP_FILE}
+            echo "TIMESTAMP_UPDATE=${TIMESTAMP}" >> ${APP_FILE}
+            echo "UPDATE_NUM=0" >> ${APP_FILE}
+        fi
+
+        gsutil cp ${APP_FILE} gs://${GCS_DYNAMIC}/${DNS_ZONE}/${APP_FILE}
+        echo "DYNAMIC URL:  https://${APP_DOMAIN}"
+      shell: bash
+      if: ${{ github.event.inputs.environment == 'dynamic' }}
