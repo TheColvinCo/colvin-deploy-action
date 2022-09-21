@@ -41,7 +41,7 @@ runs:
             then
                 if [[ ! ${GITHUB_REF_NAME} =~ ^[A-Z]{2,4}-[0-9]+(_|\/).* ]]
                 then
-                    echo "::error::The branch isn't in the expected format, with a Jira code prefix!"
+                    echo "::error::The branch isn't formatted as expected with a Jira code prefix!"
                     exit 1
                 fi
 
@@ -243,7 +243,7 @@ runs:
         while ! ${FINISH}
         do
             HTTP_IP=`kubectl get ingress dyn-${APP_NAME}-${APP_HASH} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
-            if [[ ${HTTP_IP} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then FINISH=true; else echo "Waiting for the IP of the balancer..."; sleep 15; fi
+            if [[ ${HTTP_IP} =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then FINISH=true; else echo "Waiting for load balancer IP..."; sleep 15; fi
         done
 
         echo "HTTP INGRESS IP: ${HTTP_IP}"
