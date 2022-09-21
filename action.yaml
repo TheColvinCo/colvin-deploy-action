@@ -75,12 +75,12 @@ runs:
                 echo "APP_HASH=${APP_HASH}" >> ${GITHUB_ENV}
                 echo "APP_DOMAIN=dyn-${APP_HASH}.${DNS_DOMAIN}" >> ${GITHUB_ENV}
                 echo "TAG_PREFIX=${APP_HASH}" >> ${GITHUB_ENV}
-                echo "SLACK_URL_MSG=\"\\nURL: ${APP_DOMAIN}\"" >> ${GITHUB_ENV}
+                echo "SLACK_URL_MSG=\\nURL: https://${APP_DOMAIN}" >> ${GITHUB_ENV}
             else
                 NUM_STG=`echo ${INPUT_WORKSPACE} | awk -F"stage" '{ print $2 }'`
                 echo "NUM_STG=${NUM_STG}" >> ${GITHUB_ENV}
                 echo "TAG_PREFIX=s${NUM_STG}" >> ${GITHUB_ENV}
-                echo "SLACK_URL_MSG=\"\\nURL: ${STAGE_URL_FORMAT/\{STAGE\}/${INPUT_WORKSPACE}}.${DNS_DOMAIN}\""  >> ${GITHUB_ENV}
+                echo "SLACK_URL_MSG=\\nURL: https://${STAGE_URL_FORMAT/\{STAGE\}/${INPUT_WORKSPACE}}.${DNS_DOMAIN}"  >> ${GITHUB_ENV}
             fi
 
             # We can make a manual "plan|apply" from master or any branch
