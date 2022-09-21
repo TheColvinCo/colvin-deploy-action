@@ -22,16 +22,16 @@ In the main Action of each project, we will specify the variables block, like th
 ```sh
 env:
   PROJECT_ID: "gcp-project"
-  LIMIT_STG: "2"
-  MAJOR_VERSION: "1"
   APP_NAME: "colvin"
   SA_GCP: ${{ secrets.SA_GCP }}
   GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
   REGISTRY: "europe-docker.pkg.dev/gcp-project/colvin/"
   GCP_REGION: "europe-west9"
   GCP_ZONE: "europe-west9-a"
+  GCS_DYNAMIC: 'clv-dynamic-envs'
   K8S_PROD: "colvin"
   K8S_STG: "stage"
+  K8S_STG_LOCATION: 'region'
   EXEC_TERRAFORM: "true"
   EXEC_DOCKER: "true"
   EXEC_HELM: "true"
@@ -43,14 +43,14 @@ env:
   BUILD_ARG_PROD: "--build-arg environment=production"
   BUILD_ARG_STG: "--build-arg environment=stage"
   BUILD_USE_WORKSPACE: "false"
+  DNS_ZONE: 'blommarket-com'
+  DNS_DOMAIN: 'blommarket.com'
+  GCS_DYNAMIC: 'clv-dynamic-envs'
+  SLACK_EMOJI: ':basket:'
 ```
 
 
 - `PROJECT_ID` - Unique identifier of the project in GCP
-
-- `LIMIT_STG` - We can determine the maximum number of stage environments allowed by the application.
-
-- `MAJOR_VERSION` - Used for construction of the version tag, MAJOR_VERSION.X
 
 - `APP_NAME` - Helm chart main name.
 
@@ -64,9 +64,13 @@ env:
 
 - `GCP_ZONE` - GCP main project zone, for a zonal resouces.
 
+- `GCS_DYNAMIC` -
+
 - `K8S_PROD` - Kubernetes cluster name for production.
 
 - `K8S_STG:` - Kubernetes cluster name for stage.
+
+- `K8S_STG_LOCATION` - [region|zone] Indicate the location of the stage cluster
 
 - `EXEC_TERRAFORM:` - If our application has terraform and we want to execute the terraform steps in the deploy process (init, apply).
 
@@ -90,3 +94,10 @@ env:
 
 - `BUILD_USE_WORKSPACE` - If we want to add the stage workspace at the end of the build-args to make the build dynamic according to the environment.
 
+- `DNS_ZONE` - DNS zone ID in Google Cloud DNS.
+
+- `DNS_DOMAIN` - DNS zone root domain.
+
+- `GCS_DYNAMIC` - Identifier of the bucket in GCS that saves the states of the dynamic environments.
+
+- `SLACK_EMOJI` - Emoticon of notifications in Slack.
