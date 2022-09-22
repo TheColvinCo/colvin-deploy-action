@@ -45,7 +45,6 @@ env:
   BUILD_USE_WORKSPACE: "false"
   DNS_ZONE: 'blommarket-com'
   DNS_DOMAIN: 'blommarket.com'
-  GCS_DYNAMIC: 'clv-dynamic-envs'
   SLACK_EMOJI: ':basket:'
 ```
 
@@ -64,7 +63,7 @@ env:
 
 - `GCP_ZONE` - GCP main project zone, for a zonal resouces.
 
-- `GCS_DYNAMIC` -
+- `GCS_DYNAMIC` - Identifier of the bucket in GCS that saves the states of the dynamic environments.
 
 - `K8S_PROD` - Kubernetes cluster name for production.
 
@@ -97,7 +96,5 @@ env:
 - `DNS_ZONE` - DNS zone ID in Google Cloud DNS.
 
 - `DNS_DOMAIN` - DNS zone root domain.
-
-- `GCS_DYNAMIC` - Identifier of the bucket in GCS that saves the states of the dynamic environments.
 
 - `SLACK_EMOJI` - Emoticon of notifications in Slack.
