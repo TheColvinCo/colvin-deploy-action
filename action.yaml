@@ -19,9 +19,9 @@ runs:
         INPUT_WORKSPACE=${{ github.event.inputs.environment }}
         SLACK_URL_MSG=""
         
-        if [ "${{ github.event_name }}" == "push" ]
+        if [ "${{ github.event_name }}" == "push" ] || [ ${INPUT_WORKSPACE} == "prod" ]
         then
-            # PRODUCTION - Master branch through commit or merge PR
+            # PRODUCTION - Master branch through commit, merge PR or manual deploy to prod
             echo "WORKSPACE=prod" >> ${GITHUB_ENV}
             echo "TAG_PREFIX=1" >> ${GITHUB_ENV}
         else
