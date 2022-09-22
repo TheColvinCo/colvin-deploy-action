@@ -45,6 +45,7 @@ env:
   BUILD_USE_WORKSPACE: "false"
   DNS_ZONE: 'blommarket-com'
   DNS_DOMAIN: 'blommarket.com'
+  STAGE_URL_FORMAT: "{STAGE}-marketplace"
   SLACK_EMOJI: ':basket:'
 ```
 
@@ -96,5 +97,7 @@ env:
 - `DNS_ZONE` - DNS zone ID in Google Cloud DNS.
 
 - `DNS_DOMAIN` - DNS zone root domain.
+
+- `STAGE_URL_FORMAT` - Format of the subdomain used by the APP, the tag {STAGE} will be replaced by the chosen environment.
 
 - `SLACK_EMOJI` - Emoticon of notifications in Slack.
