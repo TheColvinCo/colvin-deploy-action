@@ -176,7 +176,8 @@ runs:
         for CONTAINER in "${ARRAY_CONTAINERS[@]}"
         do
             export TAG_${CONTAINER^^}="${REGISTRY}${CONTAINER}:${TAG_IMG}"
-
+            export DOCKER_BUILDKIT=1
+            
             if [ ${WORKSPACE} == "prod" ]
             then
                 docker-compose -f docker-compose.yml build ${BUILD_ARG_PROD} ${CONTAINER}
