@@ -119,7 +119,7 @@ runs:
 
         if [ ${WORKSPACE} != "prod" ]
         then
-            if [ `kubectl get nodes -o json | jq '.items | length'` -eq 0 ]; then echo "::error::Stage is stopped. Remember to start it!"; exit 1; fi
+            if [ `kubectl get nodes --selector='mode!=static' -o json | jq '.items | length'` -eq 0 ]; then echo "::error::Stage is stopped. Remember to start it!"; exit 1; fi
         fi
       shell: bash
 
