@@ -9,7 +9,7 @@ The installation of dependencies and tools is done individually in each project,
 Add this Action as an additional step to each project.
 
 ```sh
-    - name: "Deploy"
+    - name: 'Deploy'
       uses: TheColvinCo/colvin-deploy-action@{VERSION}
 ```
 
@@ -21,31 +21,31 @@ In the main Action of each project, we will specify the variables block, like th
 
 ```sh
 env:
-  PROJECT_ID: "gcp-project"
-  APP_NAME: "colvin"
+  PROJECT_ID: 'gcp-project'
+  APP_NAME: 'colvin'
   SA_GCP: ${{ secrets.SA_GCP }}
   GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
-  REGISTRY: "europe-docker.pkg.dev/gcp-project/colvin/"
-  GCP_REGION: "europe-west9"
-  GCP_ZONE: "europe-west9-a"
+  REGISTRY: 'europe-docker.pkg.dev/gcp-project/colvin/'
+  GCP_REGION: 'europe-west1'
+  GCP_ZONE: 'europe-west1-d'
   GCS_DYNAMIC: 'clv-dynamic-envs'
-  K8S_PROD: "colvin"
-  K8S_STG: "stage"
+  K8S_PROD: 'colvin'
+  K8S_STG: 'stage'
   K8S_STG_LOCATION: 'region'
-  EXEC_TERRAFORM: "true"
-  EXEC_DOCKER: "true"
-  EXEC_HELM: "true"
-  DIFF_TERRAFORM: "true"
-  HELM_TIMEOUT: "5m"
-  HELM_PATH: "./helm"
-  TERRAFORM_PATH: "./terraform"
-  CONTAINER_LIST: "web"
-  BUILD_ARG_PROD: "--build-arg environment=production"
-  BUILD_ARG_STG: "--build-arg environment=stage"
-  BUILD_USE_WORKSPACE: "false"
+  EXEC_TERRAFORM: 'true'
+  EXEC_DOCKER: 'true'
+  EXEC_HELM: 'true'
+  DIFF_TERRAFORM: 'true'
+  HELM_TIMEOUT: '5m'
+  HELM_PATH: './helm'
+  TERRAFORM_PATH: './terraform'
+  CONTAINER_LIST: 'web'
+  BUILD_ARG_PROD: '--build-arg environment=production'
+  BUILD_ARG_STG: '--build-arg environment=stage'
+  BUILD_USE_WORKSPACE: 'false'
   DNS_ZONE: 'blommarket-com'
   DNS_DOMAIN: 'blommarket.com'
-  STAGE_URL_FORMAT: "{STAGE}-marketplace"
+  STAGE_URL_FORMAT: '{STAGE}-marketplace'
   SLACK_EMOJI: ':basket:'
 ```
 
