@@ -9,7 +9,7 @@ The installation of dependencies and tools is done individually in each project,
 Add this Action as an additional step to each project.
 
 ```sh
-    - name: "Deploy"
+    - name: 'Deploy'
       uses: TheColvinCo/colvin-deploy-action@{VERSION}
 ```
 
@@ -21,36 +21,36 @@ In the main Action of each project, we will specify the variables block, like th
 
 ```sh
 env:
-  PROJECT_ID: "gcp-project"
-  LIMIT_STG: "2"
-  MAJOR_VERSION: "1"
-  APP_NAME: "colvin"
+  PROJECT_ID: 'gcp-project'
+  APP_NAME: 'colvin'
   SA_GCP: ${{ secrets.SA_GCP }}
   GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
-  REGISTRY: "europe-docker.pkg.dev/gcp-project/colvin/"
-  GCP_REGION: "europe-west9"
-  GCP_ZONE: "europe-west9-a"
-  K8S_PROD: "colvin"
-  K8S_STG: "stage"
-  EXEC_TERRAFORM: "true"
-  EXEC_DOCKER: "true"
-  EXEC_HELM: "true"
-  DIFF_TERRAFORM: "true"
-  HELM_TIMEOUT: "5m"
-  HELM_PATH: "./helm"
-  TERRAFORM_PATH: "./terraform"
-  CONTAINER_LIST: "web"
-  BUILD_ARG_PROD: "--build-arg environment=production"
-  BUILD_ARG_STG: "--build-arg environment=stage"
-  BUILD_USE_WORKSPACE: "false"
+  REGISTRY: 'europe-docker.pkg.dev/gcp-project/colvin/'
+  GCP_REGION: 'europe-west1'
+  GCP_ZONE: 'europe-west1-d'
+  GCS_DYNAMIC: 'clv-dynamic-envs'
+  K8S_PROD: 'colvin'
+  K8S_STG: 'stage'
+  K8S_STG_LOCATION: 'region'
+  EXEC_TERRAFORM: 'true'
+  EXEC_DOCKER: 'true'
+  EXEC_HELM: 'true'
+  DIFF_TERRAFORM: 'true'
+  HELM_TIMEOUT: '5m'
+  HELM_PATH: './helm'
+  TERRAFORM_PATH: './terraform'
+  CONTAINER_LIST: 'web'
+  BUILD_ARG_PROD: '--build-arg environment=production'
+  BUILD_ARG_STG: '--build-arg environment=stage'
+  BUILD_USE_WORKSPACE: 'false'
+  DNS_ZONE: 'blommarket-com'
+  DNS_DOMAIN: 'blommarket.com'
+  STAGE_URL_FORMAT: '{STAGE}-marketplace'
+  SLACK_EMOJI: ':basket:'
 ```
 
 
 - `PROJECT_ID` - Unique identifier of the project in GCP
-
-- `LIMIT_STG` - We can determine the maximum number of stage environments allowed by the application.
-
-- `MAJOR_VERSION` - Used for construction of the version tag, MAJOR_VERSION.X
 
 - `APP_NAME` - Helm chart main name.
 
@@ -64,9 +64,13 @@ env:
 
 - `GCP_ZONE` - GCP main project zone, for a zonal resouces.
 
+- `GCS_DYNAMIC` - Identifier of the bucket in GCS that saves the states of the dynamic environments.
+
 - `K8S_PROD` - Kubernetes cluster name for production.
 
 - `K8S_STG:` - Kubernetes cluster name for stage.
+
+- `K8S_STG_LOCATION` - [region|zone] Indicate the location of the stage cluster
 
 - `EXEC_TERRAFORM:` - If our application has terraform and we want to execute the terraform steps in the deploy process (init, apply).
 
@@ -90,3 +94,10 @@ env:
 
 - `BUILD_USE_WORKSPACE` - If we want to add the stage workspace at the end of the build-args to make the build dynamic according to the environment.
 
+- `DNS_ZONE` - DNS zone ID in Google Cloud DNS.
+
+- `DNS_DOMAIN` - DNS zone root domain.
+
+- `STAGE_URL_FORMAT` - Format of the subdomain used by the APP, the tag {STAGE} will be replaced by the chosen environment.
+
+- `SLACK_EMOJI` - Emoticon of notifications in Slack.
