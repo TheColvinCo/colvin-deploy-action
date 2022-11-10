@@ -39,7 +39,7 @@ runs:
 
             if [ ${INPUT_WORKSPACE} == "dynamic" ]
             then
-                if [[ ! ${GITHUB_REF_NAME} =~ ^[A-Z]{2,4}-[0-9]+(_|\/).* ]]
+                if [[ ! ${GITHUB_REF_NAME} =~ ^[a-z|A-Z]{2,4}-[0-9]+(_|\/).* ]]
                 then
                     echo "::error::The branch isn't formatted as expected with a Jira code prefix!"
                     exit 1
