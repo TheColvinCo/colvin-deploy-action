@@ -168,9 +168,6 @@ runs:
 
     - name: 'Docker build images'
       run: |
-        export CLOUDSDK_PYTHON=python2
-        # https://stackoverflow.com/questions/65295958/docker-compose-not-working-with-gcloud-cannot-find-openssl
-
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
 
         for CONTAINER in "${ARRAY_CONTAINERS[@]}"
