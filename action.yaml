@@ -203,8 +203,14 @@ runs:
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
         for CONTAINER in "${ARRAY_CONTAINERS[@]}"
         do 
-          docker tag ${REGISTRY}${CONTAINER}:latest ${REGISTRY}${CONTAINER}:${TAG_IMG}
-          docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}
+          if [ ${WORKSPACE} == "prod" ]
+          then
+            docker push ${REGISTRY}${CONTAINER}:latest
+            docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}
+          else
+            docker push ${REGISTRY}${CONTAINER}:${GITHUB_REF_NAME}
+            docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}
+          fi
         done
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
