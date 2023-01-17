@@ -201,7 +201,11 @@ runs:
     - name: 'Docker push to Artifacts Registry'
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
-        for CONTAINER in "${ARRAY_CONTAINERS[@]}"; do docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}; done
+        for CONTAINER in "${ARRAY_CONTAINERS[@]}"
+        do 
+          docker tag ${REGISTRY}${CONTAINER}:latest ${REGISTRY}${CONTAINER}:${TAG_IMG}
+          docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}
+        done
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
 
