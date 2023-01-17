@@ -205,12 +205,11 @@ runs:
         do 
           if [ ${WORKSPACE} == "prod" ]
           then
-            docker push ${REGISTRY}${CONTAINER}:latest
-            docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}
+            docker tag ${CONTAINER} latest ${TAG_IMG}
           else
-            docker push ${REGISTRY}${CONTAINER}:${GITHUB_REF_NAME}
-            docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}
+            docker tag ${CONTAINER} ${GITHUB_REF_NAME} ${TAG_IMG}
           fi
+            docker push ${REGISTRY}${CONTAINER} --all-tags
         done
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
