@@ -152,7 +152,7 @@ runs:
     - name: 'Get latest tag and auto increment version'
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
-        REGEX_REGISTRY="^[0-9]\.[0-9]{1,}$"
+        REGEX_REGISTRY="^${TAG_PREFIX}\.[0-9]{1,}$"
         PRE_REGEX="^${TAG_PREFIX}\."
         REGEX_VERSION="${PRE_REGEX}[0-9]{1,}$"
         
