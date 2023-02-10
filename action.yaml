@@ -156,7 +156,7 @@ runs:
         PRE_REGEX="^${TAG_PREFIX}\."
         REGEX_VERSION="${PRE_REGEX}[0-9]{1,}$"
         
-        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~${REGEX_REGISTRY}" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="~TIMESTAMP" --filter="tags~${REGEX_REGISTRY}" | sed '/TIMESTAMP/d' | head -n1 | awk '{print $2}'`
         IFS=','
         read -a elements <<< "$LAST"
         
