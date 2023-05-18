@@ -152,22 +152,9 @@ runs:
     - name: 'Get latest tag and auto increment version'
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
-        REGEX_REGISTRY="^${TAG_PREFIX}\.[0-9]{1,}$"
-        PRE_REGEX="^${TAG_PREFIX}\."
-        REGEX_VERSION="${PRE_REGEX}[0-9]{1,}$"
-        
-        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="~TIMESTAMP" --filter="tags~${REGEX_REGISTRY}" | sed '/TIMESTAMP/d' | head -n1 | awk '{print $2}'`
-        IFS=','
-        read -a elements <<< "$LAST"
-        
-        for (( n=0; n < ${#elements[*]}; n++))
-        do
-          if [[ "${elements[n]}" =~ $REGEX_VERSION ]]
-          then
-            MINOR=$(echo $BASH_REMATCH | sed "s/${PRE_REGEX}//g")
-            break
-          fi
-        done
+        REGEX="${TAG_PREFIX}.([0-9]+)"
+        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+        if [[ ${LAST} =~ ${REGEX} ]]; then MINOR="${BASH_REMATCH[1]}"; fi
         
         if [ -z ${MINOR} ]; then MINOR="0"; fi
         MINOR=$(echo ${MINOR} + 1 | bc)
