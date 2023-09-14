@@ -153,7 +153,26 @@ runs:
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
         REGEX="${TAG_PREFIX}.([0-9]+)"
-        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+        #LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+        gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | awk '{print $2}' > output.out
+        cp -a output.out output2.out
+        
+        for LINE in `cat output.out`
+        do
+            COL1=`echo ${LINE} | cut -d',' -f1`
+            COL2=`echo ${LINE} | cut -d',' -f2`
+            
+            if [[ ${COL1} =~ ${REGEX} ]]
+            then
+                sed -i "s/^${LINE}\$/${COL1}/g" output2.out
+            elif [[ ${COL2} =~ ${REGEX} ]]
+            then
+                sed -i "s/^${LINE}\$/${COL2}/g" output2.out
+            fi
+        done
+        
+        LAST=`cat output2.out | sort -rV | head -n1`
+        
         if [[ ${LAST} =~ ${REGEX} ]]; then MINOR="${BASH_REMATCH[1]}"; fi
         
         if [ -z ${MINOR} ]; then MINOR="0"; fi
