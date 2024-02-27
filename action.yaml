@@ -107,7 +107,7 @@ runs:
 
     - name: 'GCloud get GKE credentials'
       id: 'get-credentials'
-      uses: google-github-actions/get-gke-credentials@v0
+      uses: google-github-actions/get-gke-credentials@v2
       with:
         project_id: ${{ env.PROJECT_ID }}
         cluster_name: ${{ env.CLUSTER }}
