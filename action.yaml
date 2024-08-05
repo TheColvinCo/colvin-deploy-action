@@ -177,21 +177,21 @@ runs:
             
             if [ ${WORKSPACE} == "prod" ]
             then
-                docker-compose -f docker-compose.yml build ${BUILD_ARG_PROD} ${CONTAINER}
+                docker compose -f docker compose.yml build ${BUILD_ARG_PROD} ${CONTAINER}
             elif [ ${WORKSPACE} == "dynamic" ]
             then
                 if ${BUILD_USE_WORKSPACE}
                 then
-                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG}stage1 ${CONTAINER}
+                    docker compose -f docker compose.yml build ${BUILD_ARG_STG}stage1 ${CONTAINER}
                 else
-                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
+                    docker compose -f docker compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
                 fi
             else
                 if ${BUILD_USE_WORKSPACE}
                 then
-                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG}${WORKSPACE} ${CONTAINER}
+                    docker compose -f docker compose.yml build ${BUILD_ARG_STG}${WORKSPACE} ${CONTAINER}
                 else
-                    docker-compose -f docker-compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
+                    docker compose -f docker compose.yml build ${BUILD_ARG_STG} ${CONTAINER}
                 fi
             fi
         done
