@@ -153,8 +153,9 @@ runs:
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
         REGEX="${TAG_PREFIX}.([0-9]+)"
-        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | sort -rVk2 | head -n1 | awk '{print $2}'`
+        LAST=`gcloud container images list-tags ${REGISTRY}${ARRAY_CONTAINERS[0]} --sort-by="TAGS" --filter="tags~^${TAG_PREFIX}" | sed '/TIMESTAMP/d' | awk '{print $2}' | sed -E "s/.*($REGEX).*/\1/" | sort -rVk2 | head -n1`
         if [[ ${LAST} =~ ${REGEX} ]]; then MINOR="${BASH_REMATCH[1]}"; fi
+        
         if [ -z ${MINOR} ]; then MINOR="0"; fi
         MINOR=$(echo ${MINOR} + 1 | bc)
         echo "TAG_IMG=${TAG_PREFIX}.${MINOR}" >> ${GITHUB_ENV}
@@ -201,7 +202,16 @@ runs:
     - name: 'Docker push to Artifacts Registry'
       run: |
         ARRAY_CONTAINERS=(${CONTAINER_LIST})
-        for CONTAINER in "${ARRAY_CONTAINERS[@]}"; do docker push ${REGISTRY}${CONTAINER}:${TAG_IMG}; done
+        for CONTAINER in "${ARRAY_CONTAINERS[@]}"
+        do 
+          if [ ${WORKSPACE} == "prod" ]
+          then
+            docker tag ${REGISTRY}${CONTAINER}:${TAG_IMG} ${REGISTRY}${CONTAINER}:latest
+          else
+            docker tag ${REGISTRY}${CONTAINER}:${TAG_IMG} ${REGISTRY}${CONTAINER}:${GITHUB_REF_NAME}
+          fi
+          docker push ${REGISTRY}${CONTAINER} --all-tags
+        done
       shell: bash
       if: ${{ env.EXEC_DOCKER == 'true' }}
 
